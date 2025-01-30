@@ -41,8 +41,14 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
 		}
-		dateTime = dateTime.AddDate(1, 0, 0)
-		for dateTime.Before(now) {
+		// я решил использовать это вместо цикла for
+		// т.к там может быть множество итерациий
+		if dateTime.Before(now) {
+			dateTime = dateTime.AddDate(now.Year()-dateTime.Year(), 0, 0)
+		} else {
+			dateTime = dateTime.AddDate(1, 0, 0)
+		}
+		if dateTime.Before(now) {
 			dateTime = dateTime.AddDate(1, 0, 0)
 		}
 		return dateTime.Format("20060102"), nil

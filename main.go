@@ -56,7 +56,7 @@ func main() {
 	r.Mount("/", fileServer)
 	port := os.Getenv("TODO_PORT")
 
-	if len(port) > 0 {
+	if len(port) < 1 {
 		port = "7540"
 	}
 

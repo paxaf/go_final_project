@@ -39,7 +39,7 @@ func main() {
 	}
 	defer db.Close()
 	if install {
-		sqlBytesFile, err := os.ReadFile(database)
+		sqlBytesFile, err := os.ReadFile("scheduler.sql")
 		if err != nil {
 			log.Fatal("Ошибка чтения sql файла", err)
 		}

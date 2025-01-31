@@ -5,15 +5,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/joho/godotenv"
 )
 
 func Dbinit() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Ошибка при загрузке .env файла: %v", err)
-	}
 	workDir, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Не удалось получить текущую рабочую директорию: %v", err)

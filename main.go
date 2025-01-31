@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
+	"github.com/paxaf/go_final_project/api"
 	dbinit "github.com/paxaf/go_final_project/database"
 	_ "modernc.org/sqlite"
 )
@@ -22,7 +23,7 @@ func main() {
 	r := chi.NewRouter()
 	fileServer := http.FileServer(http.Dir(webDir))
 	r.Mount("/", fileServer)
-	r.Get("api/nextdate")
+	r.Get("api/nextdate", api.NextDateHandler)
 	port := os.Getenv("TODO_PORT")
 
 	if len(port) < 1 {

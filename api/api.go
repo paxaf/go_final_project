@@ -13,10 +13,14 @@ import (
 )
 
 type task struct {
+	Id      string `json:"id"`
 	Date    string `json:"date"`
 	Title   string `json:"title"`
 	Comment string `json:"comment"`
 	Repeat  string `json:"repeat"`
+}
+type tasksResponse struct {
+	Tasks []task `json:"tasks"`
 }
 
 var userDate time.Time
@@ -100,6 +104,32 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusCreated, map[string]int64{"id": id})
+}
+func Tasks(w http.ResponseWriter, r *http.Request) {
+	var tasks []task
+	db := database.DB
+	rows, err := db.Query("SELECT CAST (id AS TEXT), date, title, comment, repeat FROM scheduler ORDER BY date ASC;")
+	if err != nil {
+		respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
+		return
+	}
+	for rows.Next() {
+		var task task
+		if err := rows.Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {
+			respondWithError(w, ("Ошибка преобразования из базы данных"), http.StatusInternalServerError)
+			return
+		}
+		tasks = append(tasks, task)
+	}
+	if err = rows.Err(); err != nil {
+		respondWithError(w, "Ошибка при обработке данных", http.StatusInternalServerError)
+		return
+	}
+	if len(tasks) == 0 {
+		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: []task{}}) // Возвращаем пустой массив
+	} else {
+		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: tasks})
+	}
 }
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")

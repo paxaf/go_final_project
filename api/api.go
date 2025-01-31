@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/paxaf/go_final_project/database"
@@ -35,71 +37,81 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 
 func AddTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	var task task
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		respondWithError(w, "Ошибка чтения тела запроса", http.StatusInternalServerError)
 		return
 	}
 
-	err = json.Unmarshal(body, &task)
-	if err != nil {
-		respondWithError(w, fmt.Sprintf("Ошибка обработки запроса: %v", err), http.StatusBadRequest)
+	log.Printf("Тело запроса: %s", body) // Логирование для отладки
+
+	var task task
+	if err := json.Unmarshal(body, &task); err != nil {
+		respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
 		return
 	}
-	if task.Title == "" {
+
+	if strings.ReplaceAll(task.Title, " ", "") == "" {
 		respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
 		return
 	}
 
-	_, err = time.Parse("20060102", task.Date)
-	if err != nil {
-		respondWithError(w, "Ошибка распознования времени", http.StatusBadRequest)
-	}
-
-	if task.Date == "" {
+	if strings.ReplaceAll(task.Date, " ", "") == "" {
 		task.Date = time.Now().Format("20060102")
-	}
-
-	if task.Repeat != "" {
-		task.Date, err = NextDate(time.Now(), task.Date, task.Repeat)
+	} else {
+		_, err = time.Parse("20060102", task.Date)
 		if err != nil {
-			respondWithError(w, fmt.Sprintf("Ошибка вычисления следующей даты: %v", err), http.StatusBadRequest)
+			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
 			return
 		}
 	}
-
-	db, err := database.Dbinit()
+	task.Repeat = strings.TrimSpace(task.Repeat)
+	if task.Repeat != "" {
+		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+		if err != nil {
+			respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
+			return
+		}
+		task.Date = nextDate
+	} else {
+		currentDate := time.Now().Format("20060102")
+		if task.Date < currentDate {
+			respondWithError(w, "Дата не может быть меньше сегодняшней", http.StatusBadRequest)
+			return
+		}
+	}
+	db := database.DB
 	if err != nil {
-		respondWithError(w, fmt.Sprintf("Ошибка инициализации базы данных: %v", err), http.StatusInternalServerError)
+		respondWithError(w, "Ошибка инициализации базы данных", http.StatusInternalServerError)
 		return
 	}
-	defer db.Close()
+	var id int64
 
-	res, err := db.Exec("INSERT INTO scheduler (date, title, comment, repeat) VALUES ($1, $2, $3, $4);", task.Date, task.Title, task.Comment, task.Repeat)
+	err = db.QueryRow(
+		`INSERT INTO scheduler (date, title, comment, repeat) 
+         VALUES ($1, $2, $3, $4) RETURNING id`,
+		task.Date, task.Title, task.Comment, task.Repeat,
+	).Scan(&id)
 	if err != nil {
-		respondWithError(w, fmt.Sprintf("Ошибка записи в базу данных: %v", err), http.StatusInternalServerError)
+		log.Printf("Ошибка записи в БД: %v", err) // Добавьте это
+		respondWithError(w, "Ошибка записи в базу данных: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	id, err := res.LastInsertId()
-	if err != nil {
-		respondWithError(w, "Ошибка на стороне сервера", http.StatusInternalServerError)
-		return
-	}
 	respondWithJSON(w, http.StatusCreated, map[string]int64{"id": id})
 }
-
-// respondWithError отправляет ошибку в формате JSON
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		log.Printf("Ошибка кодирования JSON: %v", err)
+	}
 }
-
-// respondWithJSON отправляет JSON-ответ
 func respondWithJSON(w http.ResponseWriter, statusCode int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(payload)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("Ошибка кодирования JSON: %v", err)
+	}
 }

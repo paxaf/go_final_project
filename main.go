@@ -18,16 +18,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("Ошибка при загрузке .env файла: %v", err)
 	}
-	_, err = database.Dbinit()
+	err = database.Dbinit()
 	if err != nil {
 		log.Fatalf("Ошибка при подключении к базе данных")
 	}
+	defer database.DB.Close()
 	webDir := "./web"
 	r := chi.NewRouter()
 	fileServer := http.FileServer(http.Dir(webDir))
 	r.Mount("/", fileServer)
 	r.Get("/api/nextdate", api.NextDateHandler)
-	r.Post("/api/tasks", api.AddTask)
+	r.Post("/api/task", api.AddTask)
 	port := os.Getenv("TODO_PORT")
 
 	if len(port) < 1 {

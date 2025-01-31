@@ -27,10 +27,10 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
 		}
 		dateTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), 0, 0, 0, 0, now.Location())
-		if dateTime.After(now) {
-			dateTime = dateTime.AddDate(0, 0, days)
-		}
-		for dateTime.Before(now) {
+		dateTime = dateTime.Truncate(24 * time.Hour)
+		nowTruncated := now.Truncate(24 * time.Hour)
+
+		for !dateTime.After(nowTruncated) {
 			dateTime = dateTime.AddDate(0, 0, days)
 		}
 		return dateTime.Format("20060102"), nil
@@ -51,6 +51,9 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		}
 		return dateTime.Format("20060102"), nil
 	case 'w':
+		if len(repeat) < 3 {
+			return "", fmt.Errorf("Аргументы отсутствуют")
+		}
 		weekDay := strings.Split(repeat[2:], ",")
 		if len(weekDay) < 1 {
 			return "", fmt.Errorf("Аргументы отсутствуют")

@@ -15,6 +15,13 @@ type Task struct {
 	Repeat  string
 }
 
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func NextDate(now time.Time, date, repeat string) (string, error) {
 	if len(repeat) < 1 {
 		//return удаляем из БД
@@ -99,6 +106,52 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 			}
 		}
 		return dateTime.AddDate(0, 0, daysDifference).Format("20060102"), nil
+
+	case 'm':
+		args := strings.Split(repeat[2:], " ")
+		if len(args) < 1 {
+			return "", fmt.Errorf("Аргументы отсутствуют")
+		}
+		argDaysStr := args[0]
+		argDays := strings.Split(argDaysStr, ",")
+		// if len(args[1:]) > 0 {
+		//	argMonthStr := args[1]
+		//	argMonth := strings.Split(argMonthStr, ",")
+		//}
+		for _, name := range argDays {
+			if dayNum, err := strconv.Atoi(name); err != nil || abs(dayNum) < 1 || abs(dayNum) > 31 {
+				return "", fmt.Errorf("Ошибка с аргументом дней месяца")
+			}
+		}
+		dateTime, err := time.Parse("20060102", date)
+		if err != nil {
+			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
+		}
+		if dateTime.Before(now) {
+			dateTime = now
+		}
+		minDaysDiff := 62
+		for _, name := range argDays {
+			dayNum, err := strconv.Atoi(name)
+			if err != nil {
+				return "", fmt.Errorf("Ошибка с переводом дней месяца")
+			}
+			if dayNum > 0 {
+				dateCandidate := time.Date(dateTime.Year(), dateTime.Month(), dayNum, 0, 0, 0, 0, dateTime.Location())
+				if dateCandidate.Day() != dayNum {
+					dateCandidate = time.Date(dateTime.Year(), dateTime.Month()+1, dayNum, 0, 0, 0, 0, dateTime.Location())
+				}
+				if dateCandidate.Before(dateTime) || dateCandidate.Equal(dateTime) {
+					dateCandidate = dateCandidate.AddDate(0, 1, 0)
+				}
+				daysDiff := int(dateCandidate.Sub(dateTime).Hours() / 24)
+				if daysDiff < minDaysDiff {
+					minDaysDiff = daysDiff
+				}
+			}
+		}
+		dateTime = dateTime.AddDate(0, 0, minDaysDiff)
+		return dateTime.Format("20060102"), nil
 
 	default:
 		return "", fmt.Errorf("Неизвестный тип")

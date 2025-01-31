@@ -1,4 +1,4 @@
-package tasks
+package api
 
 import (
 	"fmt"
@@ -7,14 +7,7 @@ import (
 	"time"
 )
 
-type Task struct {
-	ID      int
-	Date    string
-	Title   string
-	Comment string
-	Repeat  string
-}
-
+// NextDate возвращает следующую дату задачи
 func NextDate(now time.Time, date, repeat string) (string, error) {
 	if len(repeat) < 1 {
 		//return удаляем из БД

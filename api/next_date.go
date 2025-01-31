@@ -9,8 +9,8 @@ import (
 
 // NextDate возвращает следующую дату задачи
 func NextDate(now time.Time, date, repeat string) (string, error) {
-	if len(repeat) < 1 {
-		//return удаляем из БД
+	if len(repeat) == 0 {
+		return "", fmt.Errorf("пустой аргумент")
 	}
 	switch repeat[0] {
 	case 'd':
@@ -26,8 +26,13 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
 		}
-		times := int(now.Sub(dateTime).Hours()/24)/days + 1
-		dateTime = dateTime.AddDate(0, 0, days*times)
+		dateTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), 0, 0, 0, 0, now.Location())
+		if dateTime.After(now) {
+			dateTime = dateTime.AddDate(0, 0, days)
+		}
+		for dateTime.Before(now) {
+			dateTime = dateTime.AddDate(0, 0, days)
+		}
 		return dateTime.Format("20060102"), nil
 	case 'y':
 		dateTime, err := time.Parse("20060102", date)

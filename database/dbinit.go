@@ -2,16 +2,17 @@ package dbinit
 
 import (
 	"database/sql"
-	"log"
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
-func Dbinit() {
+func DbInit() (*sql.DB, error) {
 	workDir, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Не удалось получить текущую рабочую директорию: %v", err)
+		return nil, fmt.Errorf("Не удалось получить текущую рабочую директорию: %w", err)
 	}
+
 	database := os.Getenv("TODO_DBFILE")
 	if len(database) < 1 {
 		database = "scheduler.db"
@@ -19,25 +20,27 @@ func Dbinit() {
 
 	dbFile := filepath.Join(workDir, database)
 	_, err = os.Stat(dbFile)
-	var install bool
-	if err != nil {
-		install = true
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("Ошибка доступа к файлу базы данных: %w", err)
 	}
+
 	db, err := sql.Open("sqlite", dbFile)
 	if err != nil {
-		log.Fatal("Ошибка при подключении к базе данных: ", err)
+		return nil, fmt.Errorf("Ошибка при подключении к базе данных: %w", err)
 	}
-	defer db.Close()
-	if install {
+
+	if os.IsNotExist(err) {
 		sqlBytesFile, err := os.ReadFile("database/scheduler.sql")
 		if err != nil {
-			log.Fatal("Ошибка чтения sql файла", err)
+			return nil, fmt.Errorf("Ошибка чтения sql файла: %w", err)
 		}
+
 		sqlReadFile := string(sqlBytesFile)
 		_, err = db.Exec(sqlReadFile)
 		if err != nil {
-			log.Fatal("Ошибка выполнения SQL запросов: ", err)
+			return nil, fmt.Errorf("Ошибка выполнения SQL запросов: %w", err)
 		}
 	}
 
+	return db, nil
 }

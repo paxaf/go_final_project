@@ -107,10 +107,6 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		}
 		argDaysStr := args[0]
 		argDays := strings.Split(argDaysStr, ",")
-		// if len(args[1:]) > 0 {
-		//	argMonthStr := args[1]
-		//	argMonth := strings.Split(argMonthStr, ",")
-		//}
 		for _, name := range argDays {
 			if dayNum, err := strconv.Atoi(name); err != nil || dayNum < -2 || dayNum > 31 || dayNum == 0 {
 				return "", fmt.Errorf("Ошибка с аргументом дней месяца")
@@ -154,7 +150,31 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 			}
 		}
 		dateTime = dateTime.AddDate(0, 0, minDaysDiff)
-		return dateTime.Format("20060102"), nil
+		if len(args[1:]) > 0 {
+			argMonthStr := args[1]
+			argMonth := strings.Split(argMonthStr, ",")
+			minMonthDaysDiff := 366
+			var minMonth int
+			for _, name := range argMonth {
+				monthNum, err := strconv.Atoi(name)
+				if err != nil || monthNum > 12 || monthNum < 1 {
+					return "", fmt.Errorf("Ошибка с номера месяца")
+				}
+				monthCandidate := time.Date(dateTime.Year(), time.Month(monthNum), 1, 0, 0, 0, 0, dateTime.Location())
+				if monthCandidate.Before(dateTime) {
+					monthCandidate = monthCandidate.AddDate(1, 0, 0)
+				}
+				monthDaysDiff := int(monthCandidate.Sub(dateTime).Hours() / 24)
+				if monthDaysDiff < minMonthDaysDiff {
+					minMonthDaysDiff = monthDaysDiff
+					minMonth = monthNum
+				}
+			}
+			dateTime = time.Date(dateTime.Year(), time.Month(minMonth), dateTime.Day(), 0, 0, 0, 0, dateTime.Location())
+			return dateTime.Format("20060102"), nil
+		} else {
+			return dateTime.Format("20060102"), nil
+		}
 
 	default:
 		return "", fmt.Errorf("Неизвестный тип")

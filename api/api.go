@@ -119,6 +119,7 @@ func Tasks(w http.ResponseWriter, r *http.Request) {
 			respondWithError(w, ("Ошибка преобразования из базы данных"), http.StatusInternalServerError)
 			return
 		}
+		defer rows.Close()
 		tasks = append(tasks, task)
 	}
 	if err = rows.Err(); err != nil {

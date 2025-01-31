@@ -15,13 +15,6 @@ type Task struct {
 	Repeat  string
 }
 
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 func NextDate(now time.Time, date, repeat string) (string, error) {
 	if len(repeat) < 1 {
 		//return удаляем из БД
@@ -119,7 +112,7 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		//	argMonth := strings.Split(argMonthStr, ",")
 		//}
 		for _, name := range argDays {
-			if dayNum, err := strconv.Atoi(name); err != nil || abs(dayNum) < 1 || abs(dayNum) > 31 {
+			if dayNum, err := strconv.Atoi(name); err != nil || dayNum < -2 || dayNum > 31 || dayNum == 0 {
 				return "", fmt.Errorf("Ошибка с аргументом дней месяца")
 			}
 		}
@@ -144,6 +137,16 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 				if dateCandidate.Before(dateTime) || dateCandidate.Equal(dateTime) {
 					dateCandidate = dateCandidate.AddDate(0, 1, 0)
 				}
+				daysDiff := int(dateCandidate.Sub(dateTime).Hours() / 24)
+				if daysDiff < minDaysDiff {
+					minDaysDiff = daysDiff
+				}
+			} else {
+				dateCandidate := time.Date(dateTime.Year(), dateTime.Month()+1, dayNum, 0, 0, 0, 0, dateTime.Location())
+				if dateCandidate.Equal(dateTime) {
+					dateCandidate = time.Date(dateTime.Year(), dateTime.Month()+2, dayNum, 0, 0, 0, 0, dateTime.Location())
+				}
+				dateCandidate = dateCandidate.AddDate(0, 0, 1)
 				daysDiff := int(dateCandidate.Sub(dateTime).Hours() / 24)
 				if daysDiff < minDaysDiff {
 					minDaysDiff = daysDiff

@@ -111,6 +111,41 @@ func TestNextDate(t *testing.T) {
 			want:   "20240531",
 			err:    false,
 		},
+		{
+			now:    now,
+			date:   "20240127",
+			repeat: "m -1",
+			want:   "20240131",
+			err:    false,
+		},
+		{
+			now:    now,
+			date:   "20240222",
+			repeat: "m -2",
+			want:   "20240228",
+			err:    false,
+		},
+		{
+			now:    now,
+			date:   "20240222",
+			repeat: "m -2,-3",
+			want:   "",
+			err:    true,
+		},
+		{
+			now:    now,
+			date:   "20240326",
+			repeat: "m -1,-2",
+			want:   "20240330",
+			err:    false,
+		},
+		{
+			now:    now,
+			date:   "20240201",
+			repeat: "m -1,18",
+			want:   "20240218",
+			err:    false,
+		},
 	}
 
 	// Выполняем каждый тест

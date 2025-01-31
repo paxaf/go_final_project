@@ -19,6 +19,8 @@ type task struct {
 	Repeat  string `json:"repeat"`
 }
 
+var userDate time.Time
+
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	now, err := time.Parse("20060102", r.URL.Query().Get("now"))
 	if err != nil {
@@ -60,7 +62,7 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 	if strings.ReplaceAll(task.Date, " ", "") == "" {
 		task.Date = time.Now().Format("20060102")
 	} else {
-		_, err = time.Parse("20060102", task.Date)
+		userDate, err = time.Parse("20060102", task.Date)
 		if err != nil {
 			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
 			return
@@ -75,10 +77,8 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		}
 		task.Date = nextDate
 	} else {
-		currentDate := time.Now().Format("20060102")
-		if task.Date < currentDate {
-			respondWithError(w, "Дата не может быть меньше сегодняшней", http.StatusBadRequest)
-			return
+		if userDate.Before(time.Now()) {
+			task.Date = time.Now().Format("20060102")
 		}
 	}
 	db := database.DB

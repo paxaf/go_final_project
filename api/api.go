@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
-	api "github.com/paxaf/go_final_project/api"
 )
 
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +14,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	date := r.URL.Query().Get("date")
 	repeat := r.URL.Query().Get("repeat")
-	resp, err := api.NextDate(now, date, repeat)
+	resp, err := NextDate(now, date, repeat)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Ошибка: %v", err), http.StatusInternalServerError)
 	}

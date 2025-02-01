@@ -33,6 +33,7 @@ func main() {
 	r.Post("/api/task", api.AddTask)
 	r.Put("/api/task", api.EditTask)
 	r.Post("/api/task/done", api.Done)
+	r.Delete("/api/task", api.DelTask)
 	port := os.Getenv("TODO_PORT")
 
 	if len(port) < 1 {

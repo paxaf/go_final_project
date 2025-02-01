@@ -290,6 +290,30 @@ func Done(w http.ResponseWriter, r *http.Request) {
 	}
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
 }
+func DelTask(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	db := database.DB
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		respondWithError(w, ("Некорректный id задачи"), http.StatusBadRequest)
+		return
+	}
+	res, err := db.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", idInt))
+	if err != nil {
+		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+		return
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected == 0 {
+		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
+}
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)

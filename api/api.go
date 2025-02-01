@@ -148,7 +148,7 @@ func Tasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(tasks) == 0 {
-		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: []task{}}) // Возвращаем пустой массив
+		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: []task{}})
 	} else {
 		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: tasks})
 	}
@@ -226,8 +226,66 @@ func EditTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rowsAffected, err := res.RowsAffected()
-	if err != nil || rowsAffected == 0 {
+	if rowsAffected == 0 {
 		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
+}
+func Done(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	db := database.DB
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		respondWithError(w, ("Некорректный id задачи"), http.StatusBadRequest)
+		return
+	}
+	var date string
+	var repeat string
+	err = db.QueryRow("SELECT date, repeat FROM scheduler WHERE id = :id", sql.Named("id", idInt)).Scan(&date, &repeat)
+	if err != nil {
+		respondWithError(w, ("Задача не найдена"), http.StatusNotFound)
+		return
+	}
+	if repeat == "" {
+		res, err := db.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", idInt))
+		if err != nil {
+			respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+			return
+		}
+		rowsAffected, err := res.RowsAffected()
+		if rowsAffected == 0 {
+			respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
+			return
+		}
+		if err != nil {
+			respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+			return
+		}
+		respondWithJSON(w, http.StatusOK, map[string]interface{}{})
+		return
+	}
+	date, err = NextDate(time.Now(), date, repeat)
+	if err != nil {
+		respondWithError(w, fmt.Sprintf("ошибка :%v", err), http.StatusInternalServerError)
+		return
+	}
+	res, err := db.Exec("UPDATE scheduler SET date = :date WHERE id = :id", sql.Named("date", date), sql.Named("id", idInt))
+	if err != nil {
+		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+		return
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected == 0 {
+		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
 		return
 	}
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{})

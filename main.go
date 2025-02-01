@@ -32,6 +32,7 @@ func main() {
 	r.Get("/api/nextdate", api.NextDateHandler)
 	r.Post("/api/task", api.AddTask)
 	r.Put("/api/task", api.EditTask)
+	r.Post("/api/task/done", api.Done)
 	port := os.Getenv("TODO_PORT")
 
 	if len(port) < 1 {

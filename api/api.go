@@ -115,14 +115,14 @@ func Tasks(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err == nil:
 		search = searchTime.Format("20060102")
-		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE date = $1 ORDER BY date ASC;", search)
+		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE date = :search_date ORDER BY date ASC;", sql.Named("search_date", search))
 		if err != nil {
 			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
 			return
 		}
 	case search != "" && err != nil:
 		search = "%" + search + "%"
-		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE title LIKE $1 OR comment LIKE $1 ORDER BY date ASC;", search)
+		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE title LIKE :search_text OR comment LIKE :search_text ORDER BY date ASC;", sql.Named("search_text", search))
 		if err != nil {
 			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
 			return

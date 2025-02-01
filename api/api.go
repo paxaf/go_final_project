@@ -52,8 +52,6 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Тело запроса: %s", body)
-
 	var task task
 	if err := json.Unmarshal(body, &task); err != nil {
 		respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
@@ -155,7 +153,7 @@ func Tasks(w http.ResponseWriter, r *http.Request) {
 		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: tasks})
 	}
 }
-func EditTask(w http.ResponseWriter, r *http.Request) {
+func Task(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 
 	idInt, err := strconv.Atoi(id)
@@ -172,7 +170,68 @@ func EditTask(w http.ResponseWriter, r *http.Request) {
 	}
 	respondWithJSON(w, http.StatusOK, task)
 }
+func EditTask(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, "Ошибка чтения тела запроса", http.StatusInternalServerError)
+		return
+	}
+	var task task
+	if err := json.Unmarshal(body, &task); err != nil {
+		respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
+		return
+	}
+	if strings.ReplaceAll(task.Title, " ", "") == "" {
+		respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
+	if strings.ReplaceAll(task.Date, " ", "") == "" {
+		task.Date = time.Now().Format("20060102")
+	} else {
+		userDate, err = time.Parse("20060102", task.Date)
+		if err != nil {
+			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
+			return
+		}
+	}
+	task.Repeat = strings.TrimSpace(task.Repeat)
+	dateRep, err := time.Parse("20060102", task.Date)
+	if err != nil {
+		dateRep = time.Now()
+	}
+	if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
+		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+		if err != nil {
+			respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
+			return
+		}
+		task.Date = nextDate
+	} else {
+		if userDate.Before(time.Now()) {
+			task.Date = time.Now().Format("20060102")
+		}
+	}
+	db := database.DB
+	idInt, err := strconv.Atoi(task.Id)
+	if err != nil {
+		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
+		return
+	}
+	res, err := db.Exec("UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id", sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat), sql.Named("id", idInt))
+	if err != nil {
+		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
+		return
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil || rowsAffected == 0 {
+		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
+}
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)

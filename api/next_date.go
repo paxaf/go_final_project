@@ -16,15 +16,15 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 	case 'd':
 		repeatSplit := strings.Split(repeat, " ")
 		if len(repeatSplit) != 2 {
-			return "", fmt.Errorf("Параметр задан не правильно")
+			return "", fmt.Errorf("параметр задан не правильно")
 		}
 		days, err := strconv.Atoi(repeatSplit[1])
 		if err != nil || days > 400 {
-			return "", fmt.Errorf("Недопустимое количество дней: %v", err)
+			return "", fmt.Errorf("недопустимое количество дней: %v", err)
 		}
 		dateTime, err := time.Parse("20060102", date)
 		if err != nil {
-			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
+			return "", fmt.Errorf("ошибка преобразования даты: %v", err)
 		}
 		dateTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), 0, 0, 0, 0, now.Location())
 		if dateTime.After(now) {
@@ -37,7 +37,7 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 	case 'y':
 		dateTime, err := time.Parse("20060102", date)
 		if err != nil {
-			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
+			return "", fmt.Errorf("ошибка преобразования даты: %v", err)
 		}
 		// я решил использовать это вместо цикла for
 		// т.к там может быть множество итерациий
@@ -52,11 +52,11 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		return dateTime.Format("20060102"), nil
 	case 'w':
 		if len(repeat) < 3 {
-			return "", fmt.Errorf("Отсутствуют аргумены")
+			return "", fmt.Errorf("отсутствуют аргумены")
 		}
 		weekDay := strings.Split(repeat[2:], ",")
 		if len(weekDay) < 1 {
-			return "", fmt.Errorf("Аргументы отсутствуют")
+			return "", fmt.Errorf("аргументы отсутствуют")
 		}
 		nameDays := map[string]string{
 			"1": "Monday",
@@ -69,12 +69,12 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		}
 		for _, i := range weekDay {
 			if _, ok := nameDays[i]; !ok {
-				return "", fmt.Errorf("Не допустимые значения в аргументе")
+				return "", fmt.Errorf("не допустимые значения в аргументе")
 			}
 		}
 		dateTime, err := time.Parse("20060102", date)
 		if err != nil {
-			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
+			return "", fmt.Errorf("ошибка преобразования даты: %v", err)
 		}
 		if dateTime.Before(now) {
 			dateTime = now
@@ -89,7 +89,7 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		for _, value := range weekDay {
 			targetDay, err := strconv.Atoi(value)
 			if err != nil {
-				return "", fmt.Errorf("Ошибка преобразования дня недели")
+				return "", fmt.Errorf("ошибка преобразования дня недели")
 			}
 			difference := (targetDay - currentWeekDay + 7) % 7
 			if difference == 0 {
@@ -104,18 +104,18 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 	case 'm':
 		args := strings.Split(repeat[2:], " ")
 		if len(args) < 1 {
-			return "", fmt.Errorf("Аргументы отсутствуют")
+			return "", fmt.Errorf("аргументы отсутствуют")
 		}
 		argDaysStr := args[0]
 		argDays := strings.Split(argDaysStr, ",")
 		for _, name := range argDays {
 			if dayNum, err := strconv.Atoi(name); err != nil || dayNum < -2 || dayNum > 31 || dayNum == 0 {
-				return "", fmt.Errorf("Ошибка с аргументом дней месяца")
+				return "", fmt.Errorf("ошибка с аргументом дней месяца")
 			}
 		}
 		dateTime, err := time.Parse("20060102", date)
 		if err != nil {
-			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
+			return "", fmt.Errorf("ошибка преобразования даты: %v", err)
 		}
 		if dateTime.Before(now) {
 			dateTime = now
@@ -124,7 +124,7 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		for _, name := range argDays {
 			dayNum, err := strconv.Atoi(name)
 			if err != nil {
-				return "", fmt.Errorf("Ошибка с переводом дней месяца")
+				return "", fmt.Errorf("ошибка с переводом дней месяца")
 			}
 			if dayNum > 0 {
 				dateCandidate := time.Date(dateTime.Year(), dateTime.Month(), dayNum, 0, 0, 0, 0, dateTime.Location())
@@ -159,7 +159,7 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 			for _, name := range argMonth {
 				monthNum, err := strconv.Atoi(name)
 				if err != nil || monthNum > 12 || monthNum < 1 {
-					return "", fmt.Errorf("Ошибка с номера месяца")
+					return "", fmt.Errorf("ошибка с номера месяца")
 				}
 				monthCandidate := time.Date(dateTime.Year(), time.Month(monthNum), 1, 0, 0, 0, 0, dateTime.Location())
 				if monthCandidate.Before(dateTime) {
@@ -178,6 +178,6 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 		}
 
 	default:
-		return "", fmt.Errorf("Неизвестный тип")
+		return "", fmt.Errorf("неизвестный тип")
 	}
 }

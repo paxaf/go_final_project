@@ -28,9 +28,10 @@ func main() {
 	fileServer := http.FileServer(http.Dir(webDir))
 	r.Mount("/", fileServer)
 	r.Get("/api/tasks", api.Tasks)
-	r.Get("/api/task", api.EditTask)
+	r.Get("/api/task", api.Task)
 	r.Get("/api/nextdate", api.NextDateHandler)
 	r.Post("/api/task", api.AddTask)
+	r.Put("/api/task", api.EditTask)
 	port := os.Getenv("TODO_PORT")
 
 	if len(port) < 1 {

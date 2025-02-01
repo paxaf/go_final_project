@@ -74,7 +74,8 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	task.Repeat = strings.TrimSpace(task.Repeat)
-	if task.Repeat != "" {
+	dateRep, err := time.Parse("20060102", task.Date)
+	if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
 		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
 			respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)

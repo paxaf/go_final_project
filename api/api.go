@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,7 +52,7 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Тело запроса: %s", body) // Логирование для отладки
+	log.Printf("Тело запроса: %s", body)
 
 	var task task
 	if err := json.Unmarshal(body, &task); err != nil {
@@ -75,6 +76,9 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 	}
 	task.Repeat = strings.TrimSpace(task.Repeat)
 	dateRep, err := time.Parse("20060102", task.Date)
+	if err != nil {
+		dateRep = time.Now()
+	}
 	if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
 		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
@@ -88,10 +92,6 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	db := database.DB
-	if err != nil {
-		respondWithError(w, "Ошибка инициализации базы данных", http.StatusInternalServerError)
-		return
-	}
 	var id int64
 
 	err = db.QueryRow(
@@ -100,7 +100,7 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		task.Date, task.Title, task.Comment, task.Repeat,
 	).Scan(&id)
 	if err != nil {
-		log.Printf("Ошибка записи в БД: %v", err) // Добавьте это
+		log.Printf("Ошибка записи в БД: %v", err)
 		respondWithError(w, "Ошибка записи в базу данных: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -155,6 +155,24 @@ func Tasks(w http.ResponseWriter, r *http.Request) {
 		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: tasks})
 	}
 }
+func EditTask(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		respondWithError(w, ("Некорректный номер задачи"), http.StatusBadRequest)
+		return
+	}
+	var task task
+	db := database.DB
+	err = db.QueryRow("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE id = :id;", sql.Named("id", idInt)).Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+	if err != nil {
+		respondWithError(w, ("Такой id не найден"), http.StatusBadRequest)
+		return
+	}
+	respondWithJSON(w, http.StatusOK, task)
+}
+
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)

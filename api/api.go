@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -106,13 +107,34 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusCreated, map[string]int64{"id": id})
 }
 func Tasks(w http.ResponseWriter, r *http.Request) {
+	search := r.URL.Query().Get("search")
+	searchTime, err := time.Parse("02.01.2006", search)
 	var tasks []task
+	var rows *sql.Rows
 	db := database.DB
-	rows, err := db.Query("SELECT CAST (id AS TEXT), date, title, comment, repeat FROM scheduler ORDER BY date ASC;")
-	if err != nil {
-		respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
-		return
+	switch {
+	case err == nil:
+		search = searchTime.Format("20060102")
+		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE date = $1 ORDER BY date ASC;", search)
+		if err != nil {
+			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
+			return
+		}
+	case search != "" && err != nil:
+		search = "%" + search + "%"
+		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE title LIKE $1 OR comment LIKE $1 ORDER BY date ASC;", search)
+		if err != nil {
+			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
+			return
+		}
+	default:
+		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler ORDER BY date ASC;")
+		if err != nil {
+			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
+			return
+		}
 	}
+
 	for rows.Next() {
 		var task task
 		if err := rows.Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {

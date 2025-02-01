@@ -27,7 +27,7 @@ func main() {
 	r := chi.NewRouter()
 	fileServer := http.FileServer(http.Dir(webDir))
 	r.Mount("/", fileServer)
-	r.Get("/api/tasks", api.Tasks)
+	r.Get("/api/tasks*", api.Tasks)
 	r.Get("/api/nextdate", api.NextDateHandler)
 	r.Post("/api/task", api.AddTask)
 	port := os.Getenv("TODO_PORT")

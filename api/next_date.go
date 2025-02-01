@@ -27,9 +27,6 @@ func NextDate(now time.Time, date, repeat string) (string, error) {
 			return "", fmt.Errorf("Ошибка преобразования даты: %v", err)
 		}
 		dateTime = time.Date(dateTime.Year(), dateTime.Month(), dateTime.Day(), 0, 0, 0, 0, now.Location())
-		if days == 1 && now.Format("20060102") == time.Now().Format("20060102") {
-			return time.Now().Format("20060102"), nil
-		}
 		if dateTime.After(now) {
 			dateTime = dateTime.AddDate(0, 0, days)
 		}

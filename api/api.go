@@ -1,18 +1,26 @@
 package api
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/paxaf/go_final_project/database"
 )
+
+type loginRequest struct {
+	Password string `json:"password"`
+}
 
 type task struct {
 	Id      string `json:"id"`
@@ -313,6 +321,32 @@ func DelTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
+}
+func Login(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		respondWithError(w, ("Ошибка запроса"), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	envPass := os.Getenv("TODO_PASSWORD")
+	if req.Password != envPass {
+		respondWithError(w, ("Ошибка авторизации"), http.StatusUnauthorized)
+		return
+	}
+	hash := sha256.Sum256([]byte(envPass))
+	hashString := hex.EncodeToString(hash[:])
+	claims := jwt.RegisteredClaims{
+		Subject: hashString,
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte("secret_key"))
+	if err != nil {
+		respondWithError(w, ("ошибка подписи токена"), http.StatusInternalServerError)
+		return
+	}
+	respondWithJSON(w, http.StatusAccepted, map[string]string{"token": tokenString})
 }
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")

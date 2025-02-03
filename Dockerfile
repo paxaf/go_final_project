@@ -19,7 +19,7 @@ RUN apt-get update && \
 
 COPY --from=builder /app/my_app .
 COPY scheduler.sql scheduler.sql
-COPY web/ /web
+COPY web/ web
 
 ENV TODO_PORT=7540 \
     TODO_DBFILE=database/scheduler.db \

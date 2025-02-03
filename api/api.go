@@ -349,7 +349,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 	respondWithJSON(w, http.StatusAccepted, map[string]string{"token": tokenString})
 }
-func Auth(next http.HandlerFunc) http.HandlerFunc {
+func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pass := os.Getenv("TODO_PASSWORD")
 		if len(pass) == 0 {

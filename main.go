@@ -26,15 +26,21 @@ func main() {
 	webDir := "./web"
 	r := chi.NewRouter()
 	fileServer := http.FileServer(http.Dir(webDir))
-	r.Mount("/", fileServer)
-	r.Post("/api/signin", api.Login)
-	r.Get("/api/tasks", api.Tasks)
-	r.Get("/api/task", api.Task)
-	r.Get("/api/nextdate", api.NextDateHandler)
-	r.Post("/api/task", api.AddTask)
-	r.Put("/api/task", api.EditTask)
-	r.Post("/api/task/done", api.Done)
-	r.Delete("/api/task", api.DelTask)
+	r.Group(func(r chi.Router) {
+		r.Mount("/", fileServer)
+		r.Post("/api/signin", api.Login)
+		r.Get("/api/nextdate", api.NextDateHandler)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(api.Auth)
+		r.Get("/api/tasks", api.Tasks)
+		r.Get("/api/task", api.Task)
+		r.Post("/api/task", api.AddTask)
+		r.Put("/api/task", api.EditTask)
+		r.Post("/api/task/done", api.Done)
+		r.Delete("/api/task", api.DelTask)
+	})
+
 	port := os.Getenv("TODO_PORT")
 
 	if len(port) < 1 {

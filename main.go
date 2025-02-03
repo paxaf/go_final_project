@@ -16,7 +16,7 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Ошибка при загрузке .env файла: %v", err)
+		//	log.Fatalf("Ошибка при загрузке .env файла: %v", err)
 	}
 	err = database.Dbinit()
 	if err != nil {

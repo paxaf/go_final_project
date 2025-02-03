@@ -2,25 +2,28 @@ FROM golang:1.23 AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY . .
 
 RUN go mod download
 
-COPY *.go ./
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /my_app
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o my_app .
 
 FROM ubuntu:latest
 
 WORKDIR /app
 
-RUN apt install sqlite3
+RUN apt-get update && \
+    apt-get install -y sqlite3 && \
+    mkdir web && \
+    mkdir database
 
-COPY --from=builder /my_app /app/my_app
+COPY --from=builder /app/my_app .
+COPY scheduler.sql scheduler.sql
+COPY web/ /web
 
 ENV TODO_PORT=7540 \
     TODO_DBFILE=database/scheduler.db \
-    TODO_PASSWORD=gofinalproject  \
+    TODO_PASSWORD=gofinalproject \
     TODO_SECRET=secretkey
 EXPOSE 7540
-CMD ["/my_app"]
+CMD ["./my_app"]

@@ -18,6 +18,8 @@ import (
 	"github.com/paxaf/go_final_project/database"
 )
 
+const FormatTime string = "20060102"
+
 type loginRequest struct {
 	Password string `json:"password"`
 }
@@ -36,7 +38,7 @@ type tasksResponse struct {
 var userDate time.Time
 
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
-	now, err := time.Parse("20060102", r.URL.Query().Get("now"))
+	now, err := time.Parse(FormatTime, r.URL.Query().Get("now"))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Неверный формат времени: %v", err), http.StatusBadRequest)
 		return
@@ -72,16 +74,16 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.ReplaceAll(task.Date, " ", "") == "" {
-		task.Date = time.Now().Format("20060102")
+		task.Date = time.Now().Format(FormatTime)
 	} else {
-		userDate, err = time.Parse("20060102", task.Date)
+		userDate, err = time.Parse(FormatTime, task.Date)
 		if err != nil {
 			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
 			return
 		}
 	}
 	task.Repeat = strings.TrimSpace(task.Repeat)
-	dateRep, err := time.Parse("20060102", task.Date)
+	dateRep, err := time.Parse(FormatTime, task.Date)
 	if err != nil {
 		dateRep = time.Now()
 	}
@@ -94,7 +96,7 @@ func AddTask(w http.ResponseWriter, r *http.Request) {
 		task.Date = nextDate
 	} else {
 		if userDate.Before(time.Now()) {
-			task.Date = time.Now().Format("20060102")
+			task.Date = time.Now().Format(FormatTime)
 		}
 	}
 	db := database.DB
@@ -121,7 +123,7 @@ func Tasks(w http.ResponseWriter, r *http.Request) {
 	db := database.DB
 	switch {
 	case err == nil:
-		search = searchTime.Format("20060102")
+		search = searchTime.Format(FormatTime)
 		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE date = :search_date ORDER BY date ASC;", sql.Named("search_date", search))
 		if err != nil {
 			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
@@ -197,16 +199,16 @@ func EditTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.ReplaceAll(task.Date, " ", "") == "" {
-		task.Date = time.Now().Format("20060102")
+		task.Date = time.Now().Format(FormatTime)
 	} else {
-		userDate, err = time.Parse("20060102", task.Date)
+		userDate, err = time.Parse(FormatTime, task.Date)
 		if err != nil {
 			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
 			return
 		}
 	}
 	task.Repeat = strings.TrimSpace(task.Repeat)
-	dateRep, err := time.Parse("20060102", task.Date)
+	dateRep, err := time.Parse(FormatTime, task.Date)
 	if err != nil {
 		dateRep = time.Now()
 	}
@@ -219,7 +221,7 @@ func EditTask(w http.ResponseWriter, r *http.Request) {
 		task.Date = nextDate
 	} else {
 		if userDate.Before(time.Now()) {
-			task.Date = time.Now().Format("20060102")
+			task.Date = time.Now().Format(FormatTime)
 		}
 	}
 	db := database.DB

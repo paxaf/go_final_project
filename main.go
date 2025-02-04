@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -46,9 +45,8 @@ func main() {
 	if len(port) < 1 {
 		port = "7540"
 	}
-
+	log.Printf("Запуск на порте: %s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
-		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
-		return
+		log.Fatalf("Ошибка при запуске сервера: %s", err.Error())
 	}
 }

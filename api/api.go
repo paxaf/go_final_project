@@ -23,8 +23,6 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
-var userDate time.Time
-
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	now, err := time.Parse(FormatTime, r.URL.Query().Get("now"))
 	if err != nil {

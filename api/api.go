@@ -2,7 +2,6 @@ package api
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -26,7 +24,6 @@ type loginRequest struct {
 }
 
 var userDate time.Time
-var db *sql.DB
 
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	now, err := time.Parse(FormatTime, r.URL.Query().Get("now"))
@@ -60,36 +57,10 @@ func AddTask(repo *repository.TaskRepository) http.HandlerFunc {
 			return
 		}
 
-		if strings.ReplaceAll(task.Title, " ", "") == "" {
-			respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
-			return
-		}
-
-		if strings.ReplaceAll(task.Date, " ", "") == "" {
-			task.Date = time.Now().Format(FormatTime)
-		} else {
-			userDate, err = time.Parse(FormatTime, task.Date)
-			if err != nil {
-				respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
-				return
-			}
-		}
-		task.Repeat = strings.TrimSpace(task.Repeat)
-		dateRep, err := time.Parse(FormatTime, task.Date)
+		err = service.Validate(&task)
 		if err != nil {
-			dateRep = time.Now()
-		}
-		if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
-			nextDate, err := service.NextDate(time.Now(), task.Date, task.Repeat)
-			if err != nil {
-				respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
-				return
-			}
-			task.Date = nextDate
-		} else {
-			if userDate.Before(time.Now()) {
-				task.Date = time.Now().Format(FormatTime)
-			}
+			respondWithError(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		id, err := repo.Create(task)
 		if err != nil {
@@ -141,36 +112,10 @@ func EditTask(repo *repository.TaskRepository) http.HandlerFunc {
 			respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
 			return
 		}
-		if strings.ReplaceAll(task.Title, " ", "") == "" {
-			respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
-			return
-		}
-
-		if strings.ReplaceAll(task.Date, " ", "") == "" {
-			task.Date = time.Now().Format(FormatTime)
-		} else {
-			userDate, err = time.Parse(FormatTime, task.Date)
-			if err != nil {
-				respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
-				return
-			}
-		}
-		task.Repeat = strings.TrimSpace(task.Repeat)
-		dateRep, err := time.Parse(FormatTime, task.Date)
+		err = service.Validate(&task)
 		if err != nil {
-			dateRep = time.Now()
-		}
-		if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
-			nextDate, err := service.NextDate(time.Now(), task.Date, task.Repeat)
-			if err != nil {
-				respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
-				return
-			}
-			task.Date = nextDate
-		} else {
-			if userDate.Before(time.Now()) {
-				task.Date = time.Now().Format(FormatTime)
-			}
+			respondWithError(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		err = repo.Update(task)
 		if err != nil {

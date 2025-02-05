@@ -5,11 +5,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/paxaf/go_final_project/internal/repository"
 )
 
-var DB *sql.DB
-
-func Dbinit() error {
+func Dbinit() (*repository.TaskRepository, error) {
+	repo := &repository.TaskRepository{}
 	workDir, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Не удалось получить текущую рабочую директорию: %v", err)
@@ -29,7 +30,7 @@ func Dbinit() error {
 	if err != nil {
 		install = true
 	}
-	DB, err = sql.Open("sqlite", dbFile)
+	db, err := sql.Open("sqlite", dbFile)
 	if err != nil {
 		log.Fatal("Ошибка при подключении к базе данных: ", err)
 	}
@@ -40,11 +41,11 @@ func Dbinit() error {
 			log.Fatal("Ошибка чтения sql файла", err)
 		}
 		sqlReadFile := string(sqlBytesFile)
-		_, err = DB.Exec(sqlReadFile)
+		_, err = db.Exec(sqlReadFile)
 		if err != nil {
 			log.Fatal("Ошибка выполнения SQL запросов: ", err)
 		}
-
 	}
-	return nil
+	repo.DB = db
+	return repo, nil
 }

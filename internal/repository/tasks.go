@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/paxaf/go_final_project/internal/models"
+	"github.com/paxaf/go_final_project/internal/service"
 )
 
 type TaskRepository struct {
@@ -17,13 +18,15 @@ func (r *TaskRepository) Create(task models.Task) (int64, error) {
 	var id int64
 	err := r.DB.QueryRow(
 		`INSERT INTO scheduler (date, title, comment, repeat) 
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-		task.Date, task.Title, task.Comment, task.Repeat,
-	).Scan(&id)
-	return id, err
+         VALUES (:date, :title, :comment, :repeat) RETURNING id`,
+		sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat)).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("ошибка вставки: %v", err)
+	}
+	return id, nil
 }
 
-func (r *TaskRepository) FindTasks(search string) ([]models.Task, error) {
+func (r *TaskRepository) SearchTasks(search string) ([]models.Task, error) {
 	var tasks []models.Task
 	var rows *sql.Rows
 
@@ -83,4 +86,84 @@ func (r *TaskRepository) FindTasks(search string) ([]models.Task, error) {
 	}
 
 	return tasks, nil
+}
+
+func (r *TaskRepository) GetByID(id string) (models.Task, error) {
+	idInt, err := strconv.Atoi(id)
+	var task models.Task
+	var idTask int
+	if err != nil {
+		return task, err
+	}
+	err = r.DB.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = :id;", sql.Named("id", idInt)).Scan(&idTask, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+	task.ID = strconv.Itoa(idTask)
+	return task, err
+}
+
+func (r *TaskRepository) Update(task models.Task) error {
+	idInt, err := strconv.Atoi(task.ID)
+	if err != nil {
+		return err
+	}
+	res, err := r.DB.Exec("UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id", sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat), sql.Named("id", idInt))
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("ни одна строка не была изменена")
+	}
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+func (r *TaskRepository) Done(id string) error {
+	var date string
+	var repeat string
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return err
+	}
+	err = r.DB.QueryRow("SELECT date, repeat FROM scheduler WHERE id = :id", sql.Named("id", idInt)).Scan(&date, &repeat)
+	if err != nil {
+		return err
+	}
+	if repeat == "" {
+		err = r.Delete(id)
+		return err
+	}
+	date, err = service.NextDate(time.Now(), date, repeat)
+	if err != nil {
+		return err
+	}
+	res, err := r.DB.Exec("UPDATE scheduler SET date = :date WHERE id = :id", sql.Named("date", date), sql.Named("id", idInt))
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("ни одна строка не была изменена")
+	}
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+func (r *TaskRepository) Delete(id string) error {
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return err
+	}
+	res, err := r.DB.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", idInt))
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("ни одна строка не была изменена")
+	}
+	return err
 }

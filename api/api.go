@@ -10,12 +10,13 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/paxaf/go_final_project/database"
+	"github.com/paxaf/go_final_project/internal/models"
+	"github.com/paxaf/go_final_project/internal/repository"
+	"github.com/paxaf/go_final_project/internal/service"
 )
 
 const FormatTime string = "20060102"
@@ -24,18 +25,8 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
-type task struct {
-	Id      string `json:"id"`
-	Date    string `json:"date"`
-	Title   string `json:"title"`
-	Comment string `json:"comment"`
-	Repeat  string `json:"repeat"`
-}
-type tasksResponse struct {
-	Tasks []task `json:"tasks"`
-}
-
 var userDate time.Time
+var db *sql.DB
 
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	now, err := time.Parse(FormatTime, r.URL.Query().Get("now"))
@@ -45,7 +36,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	date := r.URL.Query().Get("date")
 	repeat := r.URL.Query().Get("repeat")
-	resp, err := NextDate(now, date, repeat)
+	resp, err := service.NextDate(now, date, repeat)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Ошибка: %v", err), http.StatusInternalServerError)
 	}
@@ -53,276 +44,163 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, resp)
 }
 
-func AddTask(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+func AddTask(repo *repository.TaskRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		respondWithError(w, "Ошибка чтения тела запроса", http.StatusInternalServerError)
-		return
-	}
-
-	var task task
-	if err := json.Unmarshal(body, &task); err != nil {
-		respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
-		return
-	}
-
-	if strings.ReplaceAll(task.Title, " ", "") == "" {
-		respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
-		return
-	}
-
-	if strings.ReplaceAll(task.Date, " ", "") == "" {
-		task.Date = time.Now().Format(FormatTime)
-	} else {
-		userDate, err = time.Parse(FormatTime, task.Date)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
+			respondWithError(w, "Ошибка чтения тела запроса", http.StatusInternalServerError)
 			return
 		}
-	}
-	task.Repeat = strings.TrimSpace(task.Repeat)
-	dateRep, err := time.Parse(FormatTime, task.Date)
-	if err != nil {
-		dateRep = time.Now()
-	}
-	if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
-		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
-		if err != nil {
-			respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
+
+		var task models.Task
+		if err := json.Unmarshal(body, &task); err != nil {
+			respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
 			return
 		}
-		task.Date = nextDate
-	} else {
-		if userDate.Before(time.Now()) {
+
+		if strings.ReplaceAll(task.Title, " ", "") == "" {
+			respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
+			return
+		}
+
+		if strings.ReplaceAll(task.Date, " ", "") == "" {
 			task.Date = time.Now().Format(FormatTime)
+		} else {
+			userDate, err = time.Parse(FormatTime, task.Date)
+			if err != nil {
+				respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
+				return
+			}
 		}
-	}
-	db := database.DB
-	var id int64
-
-	err = db.QueryRow(
-		`INSERT INTO scheduler (date, title, comment, repeat) 
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-		task.Date, task.Title, task.Comment, task.Repeat,
-	).Scan(&id)
-	if err != nil {
-		log.Printf("Ошибка записи в БД: %v", err)
-		respondWithError(w, "Ошибка записи в базу данных: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	respondWithJSON(w, http.StatusCreated, map[string]int64{"id": id})
-}
-func Tasks(w http.ResponseWriter, r *http.Request) {
-	search := r.URL.Query().Get("search")
-	searchTime, err := time.Parse("02.01.2006", search)
-	var tasks []task
-	var rows *sql.Rows
-	db := database.DB
-	switch {
-	case err == nil:
-		search = searchTime.Format(FormatTime)
-		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE date = :search_date ORDER BY date ASC;", sql.Named("search_date", search))
+		task.Repeat = strings.TrimSpace(task.Repeat)
+		dateRep, err := time.Parse(FormatTime, task.Date)
 		if err != nil {
-			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
-			return
+			dateRep = time.Now()
 		}
-	case search != "" && err != nil:
-		search = "%" + search + "%"
-		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE title LIKE :search_text OR comment LIKE :search_text ORDER BY date ASC;", sql.Named("search_text", search))
+		if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
+			nextDate, err := service.NextDate(time.Now(), task.Date, task.Repeat)
+			if err != nil {
+				respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
+				return
+			}
+			task.Date = nextDate
+		} else {
+			if userDate.Before(time.Now()) {
+				task.Date = time.Now().Format(FormatTime)
+			}
+		}
+		id, err := repo.Create(task)
 		if err != nil {
-			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
+			log.Printf("Ошибка записи в БД: %v", err)
+			respondWithError(w, "Ошибка записи в базу данных: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-	default:
-		rows, err = db.Query("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler ORDER BY date ASC;")
-		if err != nil {
-			respondWithError(w, ("Ошибка на стороне сервера"), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	for rows.Next() {
-		var task task
-		if err := rows.Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {
-			respondWithError(w, ("Ошибка преобразования из базы данных"), http.StatusInternalServerError)
-			return
-		}
-		defer rows.Close()
-		tasks = append(tasks, task)
-	}
-	if err = rows.Err(); err != nil {
-		respondWithError(w, "Ошибка при обработке данных", http.StatusInternalServerError)
-		return
-	}
-	if len(tasks) == 0 {
-		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: []task{}})
-	} else {
-		respondWithJSON(w, http.StatusOK, tasksResponse{Tasks: tasks})
+		respondWithJSON(w, http.StatusCreated, map[string]int64{"id": id})
 	}
 }
-func Task(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
+func Tasks(repo *repository.TaskRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		search := r.URL.Query().Get("search")
+		tasks, err := repo.SearchTasks(search)
+		if err != nil {
+			respondWithError(w, fmt.Sprintf("ошибка: %v", err), http.StatusBadRequest)
+		}
+		if len(tasks) == 0 {
+			respondWithJSON(w, http.StatusOK, models.TasksResponse{Tasks: []models.Task{}})
+		} else {
+			respondWithJSON(w, http.StatusOK, models.TasksResponse{Tasks: tasks})
+		}
+	}
 
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		respondWithError(w, ("Некорректный номер задачи"), http.StatusBadRequest)
-		return
-	}
-	var task task
-	db := database.DB
-	err = db.QueryRow("SELECT CAST(id AS TEXT), date, title, comment, repeat FROM scheduler WHERE id = :id;", sql.Named("id", idInt)).Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat)
-	if err != nil {
-		respondWithError(w, ("Такой id не найден"), http.StatusBadRequest)
-		return
-	}
-	respondWithJSON(w, http.StatusOK, task)
 }
-func EditTask(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		respondWithError(w, "Ошибка чтения тела запроса", http.StatusInternalServerError)
-		return
-	}
-	var task task
-	if err := json.Unmarshal(body, &task); err != nil {
-		respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
-		return
-	}
-	if strings.ReplaceAll(task.Title, " ", "") == "" {
-		respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
-		return
-	}
-
-	if strings.ReplaceAll(task.Date, " ", "") == "" {
-		task.Date = time.Now().Format(FormatTime)
-	} else {
-		userDate, err = time.Parse(FormatTime, task.Date)
+func Task(repo *repository.TaskRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		task, err := repo.GetByID(id)
 		if err != nil {
-			respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
+			respondWithError(w, ("Такой id не найден"), http.StatusBadRequest)
 			return
 		}
+		respondWithJSON(w, http.StatusOK, task)
 	}
-	task.Repeat = strings.TrimSpace(task.Repeat)
-	dateRep, err := time.Parse(FormatTime, task.Date)
-	if err != nil {
-		dateRep = time.Now()
-	}
-	if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
-		nextDate, err := NextDate(time.Now(), task.Date, task.Repeat)
+
+}
+func EditTask(repo *repository.TaskRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
+			respondWithError(w, "Ошибка чтения тела запроса", http.StatusInternalServerError)
 			return
 		}
-		task.Date = nextDate
-	} else {
-		if userDate.Before(time.Now()) {
+		var task models.Task
+		if err := json.Unmarshal(body, &task); err != nil {
+			respondWithError(w, "Ошибка обработки запроса", http.StatusBadRequest)
+			return
+		}
+		if strings.ReplaceAll(task.Title, " ", "") == "" {
+			respondWithError(w, "Поле 'title' не может быть пустым", http.StatusBadRequest)
+			return
+		}
+
+		if strings.ReplaceAll(task.Date, " ", "") == "" {
 			task.Date = time.Now().Format(FormatTime)
+		} else {
+			userDate, err = time.Parse(FormatTime, task.Date)
+			if err != nil {
+				respondWithError(w, "Ошибка распознавания времени", http.StatusBadRequest)
+				return
+			}
 		}
-	}
-	db := database.DB
-	idInt, err := strconv.Atoi(task.Id)
-	if err != nil {
-		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
-		return
-	}
-	res, err := db.Exec("UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id", sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat), sql.Named("id", idInt))
-	if err != nil {
-		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-		return
-	}
-	rowsAffected, err := res.RowsAffected()
-	if rowsAffected == 0 {
-		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
-		return
-	}
-	if err != nil {
-		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-		return
-	}
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
-}
-func Done(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	db := database.DB
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		respondWithError(w, ("Некорректный id задачи"), http.StatusBadRequest)
-		return
-	}
-	var date string
-	var repeat string
-	err = db.QueryRow("SELECT date, repeat FROM scheduler WHERE id = :id", sql.Named("id", idInt)).Scan(&date, &repeat)
-	if err != nil {
-		respondWithError(w, ("Задача не найдена"), http.StatusNotFound)
-		return
-	}
-	if repeat == "" {
-		res, err := db.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", idInt))
+		task.Repeat = strings.TrimSpace(task.Repeat)
+		dateRep, err := time.Parse(FormatTime, task.Date)
 		if err != nil {
-			respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-			return
+			dateRep = time.Now()
 		}
-		rowsAffected, err := res.RowsAffected()
-		if rowsAffected == 0 {
-			respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
-			return
+		if task.Repeat != "" && dateRep.Before(time.Now().Truncate(24*time.Hour)) {
+			nextDate, err := service.NextDate(time.Now(), task.Date, task.Repeat)
+			if err != nil {
+				respondWithError(w, "Ошибка вычисления следующей даты", http.StatusBadRequest)
+				return
+			}
+			task.Date = nextDate
+		} else {
+			if userDate.Before(time.Now()) {
+				task.Date = time.Now().Format(FormatTime)
+			}
 		}
+		err = repo.Update(task)
 		if err != nil {
 			respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
 			return
 		}
 		respondWithJSON(w, http.StatusOK, map[string]interface{}{})
-		return
 	}
-	date, err = NextDate(time.Now(), date, repeat)
-	if err != nil {
-		respondWithError(w, fmt.Sprintf("ошибка :%v", err), http.StatusInternalServerError)
-		return
-	}
-	res, err := db.Exec("UPDATE scheduler SET date = :date WHERE id = :id", sql.Named("date", date), sql.Named("id", idInt))
-	if err != nil {
-		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-		return
-	}
-	rowsAffected, err := res.RowsAffected()
-	if rowsAffected == 0 {
-		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
-		return
-	}
-	if err != nil {
-		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-		return
-	}
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
 }
-func DelTask(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
-	db := database.DB
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		respondWithError(w, ("Некорректный id задачи"), http.StatusBadRequest)
-		return
+func Done(repo *repository.TaskRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		err := repo.Done(id)
+		if err != nil {
+			respondWithError(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
+			return
+		}
+		respondWithJSON(w, http.StatusOK, map[string]interface{}{})
 	}
-	res, err := db.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", idInt))
-	if err != nil {
-		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-		return
+}
+func DelTask(repo *repository.TaskRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		err := repo.Delete(id)
+		if err != nil {
+			respondWithError(w, fmt.Sprintf("Ошибка обращения к базе данных: %v", err), http.StatusInternalServerError)
+			return
+		}
+		respondWithJSON(w, http.StatusOK, map[string]interface{}{})
 	}
-	rowsAffected, err := res.RowsAffected()
-	if rowsAffected == 0 {
-		respondWithError(w, ("Задача не найдена"), http.StatusBadRequest)
-		return
-	}
-	if err != nil {
-		respondWithError(w, ("Ошибка обращения к базе данных"), http.StatusInternalServerError)
-		return
-	}
-	respondWithJSON(w, http.StatusOK, map[string]interface{}{})
 }
 func Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest

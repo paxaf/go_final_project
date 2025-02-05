@@ -17,11 +17,11 @@ func main() {
 	if err != nil {
 		//	log.Fatalf("Ошибка при загрузке .env файла: %v", err)
 	}
-	err = database.Dbinit()
+	repo, err := database.Dbinit()
 	if err != nil {
 		log.Fatalf("Ошибка при подключении к базе данных")
 	}
-	defer database.DB.Close()
+	defer repo.DB.Close()
 	webDir := "./web"
 	r := chi.NewRouter()
 	fileServer := http.FileServer(http.Dir(webDir))
@@ -32,12 +32,12 @@ func main() {
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(api.Auth)
-		r.Get("/api/tasks", api.Tasks)
-		r.Get("/api/task", api.Task)
-		r.Post("/api/task", api.AddTask)
-		r.Put("/api/task", api.EditTask)
-		r.Post("/api/task/done", api.Done)
-		r.Delete("/api/task", api.DelTask)
+		r.Get("/api/tasks", api.Tasks(repo))
+		r.Get("/api/task", api.Task(repo))
+		r.Post("/api/task", api.AddTask(repo))
+		r.Put("/api/task", api.EditTask(repo))
+		r.Post("/api/task/done", api.Done(repo))
+		r.Delete("/api/task", api.DelTask(repo))
 	})
 
 	port := os.Getenv("TODO_PORT")

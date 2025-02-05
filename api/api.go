@@ -172,41 +172,42 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 	respondWithJSON(w, http.StatusAccepted, map[string]string{"token": tokenString})
 }
-func Auth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		pass := os.Getenv("TODO_PASSWORD")
-		if len(pass) == 0 {
+func Auth(pass string, secret string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if len(pass) == 0 {
+				next.ServeHTTP(w, r)
+				return
+			}
+			cookie, err := r.Cookie("token")
+			if err != nil {
+				respondWithError(w, "Ошибка авторизации", http.StatusUnauthorized)
+				return
+			}
+			jwtToken := cookie.Value
+			parsedToken, err := jwt.ParseWithClaims(jwtToken, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+				return []byte(secret), nil
+			})
+			if err != nil || !parsedToken.Valid {
+				respondWithError(w, "Неверный токен", http.StatusUnauthorized)
+				return
+			}
+			claims, ok := parsedToken.Claims.(*jwt.RegisteredClaims)
+			if !ok {
+				respondWithError(w, "Ошибка чтения токена", http.StatusUnauthorized)
+				return
+			}
+			hash := sha256.Sum256([]byte(pass))
+			expectedHash := hex.EncodeToString(hash[:])
+			if claims.Subject != expectedHash {
+				respondWithError(w, "Неверные учетные данные", http.StatusUnauthorized)
+				return
+			}
 			next.ServeHTTP(w, r)
-			return
-		}
-		cookie, err := r.Cookie("token")
-		if err != nil {
-			respondWithError(w, "Ошибка авторизации", http.StatusUnauthorized)
-			return
-		}
-		jwtToken := cookie.Value
-		secret := os.Getenv("TODO_SECRET")
-		parsedToken, err := jwt.ParseWithClaims(jwtToken, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-			return []byte(secret), nil
 		})
-		if err != nil || !parsedToken.Valid {
-			respondWithError(w, "Неверный токен", http.StatusUnauthorized)
-			return
-		}
-		claims, ok := parsedToken.Claims.(*jwt.RegisteredClaims)
-		if !ok {
-			respondWithError(w, "Ошибка чтения токена", http.StatusUnauthorized)
-			return
-		}
-		hash := sha256.Sum256([]byte(pass))
-		expectedHash := hex.EncodeToString(hash[:])
-		if claims.Subject != expectedHash {
-			respondWithError(w, "Неверные учетные данные", http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+	}
 }
+
 func respondWithError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(statusCode)

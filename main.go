@@ -30,8 +30,10 @@ func main() {
 		r.Post("/api/signin", api.Login)
 		r.Get("/api/nextdate", api.NextDateHandler)
 	})
+	pass := os.Getenv("TODO_PASSWORD")
+	secret := os.Getenv("TODO_SECRET")
 	r.Group(func(r chi.Router) {
-		r.Use(api.Auth)
+		r.Use(api.Auth(pass, secret))
 		r.Get("/api/tasks", api.Tasks(repo))
 		r.Get("/api/task", api.Task(repo))
 		r.Post("/api/task", api.AddTask(repo))

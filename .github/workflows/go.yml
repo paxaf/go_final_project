@@ -42,7 +42,7 @@ jobs:
       run: docker build -t myapp:latest .
 
     - name: Run Docker container
-      run: docker run -d --name myapp_test myapp:latest
+      run: docker run -p 7540:7540 -d --name myapp_test myapp:latest
 
     - name: Wait for Docker container to start
       run: sleep 5

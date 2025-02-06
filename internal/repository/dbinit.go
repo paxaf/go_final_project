@@ -1,16 +1,14 @@
-package database
+package repository
 
 import (
 	"database/sql"
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/paxaf/go_final_project/internal/repository"
 )
 
-func Dbinit() (*repository.TaskRepository, error) {
-	repo := &repository.TaskRepository{}
+func Dbinit() (*TaskRepository, error) {
+	repo := &TaskRepository{}
 	workDir, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("Не удалось получить текущую рабочую директорию: %v", err)

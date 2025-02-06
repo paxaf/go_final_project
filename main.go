@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 	"github.com/paxaf/go_final_project/api"
-	"github.com/paxaf/go_final_project/database"
+	"github.com/paxaf/go_final_project/internal/repository"
 	_ "modernc.org/sqlite"
 )
 
@@ -17,7 +17,7 @@ func main() {
 	if err != nil {
 		//	log.Fatalf("Ошибка при загрузке .env файла: %v", err)
 	}
-	repo, err := database.Dbinit()
+	repo, err := repository.Dbinit()
 	if err != nil {
 		log.Fatalf("Ошибка при подключении к базе данных")
 	}

@@ -20,9 +20,6 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.23'  # Укажите версию Go, которую используете
-        
-    - name: Init
-      run: go mod init
   
 
     - name: Build
@@ -30,8 +27,6 @@ jobs:
 
     - name: Start server
       run: ./my_app &  # Запуск сервера в фоновом режиме
-      env:
-        APP_ENV: test  # Укажите необходимые переменные окружения
 
     - name: Wait for server to start
       run: sleep 5  # Подождите, пока сервер запустится

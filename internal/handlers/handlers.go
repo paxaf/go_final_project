@@ -1,27 +1,19 @@
 package handlers
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/paxaf/go_final_project/internal/models"
 	"github.com/paxaf/go_final_project/internal/repository"
 	"github.com/paxaf/go_final_project/internal/service"
 )
 
 const FormatTime string = "20060102"
-
-type loginRequest struct {
-	Password string `json:"password"`
-}
 
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 	now, err := time.Parse(FormatTime, r.URL.Query().Get("now"))
@@ -143,82 +135,5 @@ func DelTask(repo *repository.TaskRepository) http.HandlerFunc {
 			return
 		}
 		respondWithJSON(w, http.StatusOK, map[string]interface{}{})
-	}
-}
-func Login(w http.ResponseWriter, r *http.Request) {
-	var req loginRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		respondWithError(w, "Ошибка запроса", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-	envPass := os.Getenv("TODO_PASSWORD")
-	if req.Password != envPass {
-		respondWithError(w, "Ошибка авторизации", http.StatusUnauthorized)
-		return
-	}
-	hash := sha256.Sum256([]byte(envPass))
-	hashString := hex.EncodeToString(hash[:])
-	claims := jwt.RegisteredClaims{
-		Subject: hashString,
-	}
-	secretkey := os.Getenv("TODO_SECRET")
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(secretkey))
-	if err != nil {
-		respondWithError(w, "ошибка подписи токена", http.StatusInternalServerError)
-		return
-	}
-	respondWithJSON(w, http.StatusAccepted, map[string]string{"token": tokenString})
-}
-func Auth(pass string, secret string) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if len(pass) == 0 {
-				next.ServeHTTP(w, r)
-				return
-			}
-			cookie, err := r.Cookie("token")
-			if err != nil {
-				respondWithError(w, "Ошибка авторизации", http.StatusUnauthorized)
-				return
-			}
-			jwtToken := cookie.Value
-			parsedToken, err := jwt.ParseWithClaims(jwtToken, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-				return []byte(secret), nil
-			})
-			if err != nil || !parsedToken.Valid {
-				respondWithError(w, "Неверный токен", http.StatusUnauthorized)
-				return
-			}
-			claims, ok := parsedToken.Claims.(*jwt.RegisteredClaims)
-			if !ok {
-				respondWithError(w, "Ошибка чтения токена", http.StatusUnauthorized)
-				return
-			}
-			hash := sha256.Sum256([]byte(pass))
-			expectedHash := hex.EncodeToString(hash[:])
-			if claims.Subject != expectedHash {
-				respondWithError(w, "Неверные учетные данные", http.StatusUnauthorized)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func respondWithError(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
-		log.Printf("Ошибка кодирования JSON: %v", err)
-	}
-}
-func respondWithJSON(w http.ResponseWriter, statusCode int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(statusCode)
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("Ошибка кодирования JSON: %v", err)
 	}
 }

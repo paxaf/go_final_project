@@ -23,15 +23,15 @@ func main() {
 	}
 	defer repo.DB.Close()
 	webDir := "./web"
+	pass := os.Getenv("TODO_PASSWORD")
+	secret := os.Getenv("TODO_SECRET")
 	r := chi.NewRouter()
 	fileServer := http.FileServer(http.Dir(webDir))
 	r.Group(func(r chi.Router) {
 		r.Mount("/", fileServer)
-		r.Post("/api/signin", handlers.Login)
+		r.Post("/api/signin", handlers.Login(pass, secret))
 		r.Get("/api/nextdate", handlers.NextDateHandler)
 	})
-	pass := os.Getenv("TODO_PASSWORD")
-	secret := os.Getenv("TODO_SECRET")
 	r.Group(func(r chi.Router) {
 		r.Use(handlers.Auth(pass, secret))
 		r.Get("/api/tasks", handlers.Tasks(repo))

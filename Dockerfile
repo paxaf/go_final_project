@@ -6,24 +6,29 @@ COPY . .
 
 RUN go mod download
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o my_app .
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
 
-FROM ubuntu:latest
+RUN go build -o my_app ./cmd/app
+
+FROM alpine:latest
 
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y sqlite3 && \
+RUN apk update && \
+    apk add sqlite && \
     mkdir web && \
-    mkdir database
+    mkdir data && \
+    mkdir migration
 
 COPY --from=builder /app/my_app .
-COPY scheduler.sql scheduler.sql
+COPY migration/scheduler.sql migration/scheduler.sql
 COPY web/ web
 
 ENV TODO_PORT=7540 \
-    TODO_DBFILE=database/scheduler.db \
+    TODO_DBFILE=data/scheduler.db \
     TODO_PASSWORD=gofinalproject \
     TODO_SECRET=secretkey
-EXPOSE 7540
+EXPOSE ${TODO_PORT}
 CMD ["./my_app"]

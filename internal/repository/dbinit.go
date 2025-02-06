@@ -34,7 +34,10 @@ func Dbinit() (*TaskRepository, error) {
 	}
 
 	if install {
-		sqlBytesFile, err := os.ReadFile("migration/scheduler.sql")
+		filePath := "migration/scheduler.sql"
+		sqlFile := filepath.Join(workDir, filePath)
+
+		sqlBytesFile, err := os.ReadFile(sqlFile)
 		if err != nil {
 			log.Fatal("Ошибка чтения sql файла", err)
 		}

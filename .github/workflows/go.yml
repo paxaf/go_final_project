@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main  # Запускать workflow при пуше в ветку main
+  pull_request:
+    branches:
+      - main  # Запускать workflow при создании PR в ветку main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23'  # Укажите версию Go, которую используете
+
+    - name: Build
+      run: go build -o my_app ./cmd/app  # Укажите путь к вашему main пакету
+
+    - name: Start server
+      run: ./my_app &  # Запуск сервера в фоновом режиме
+      env:
+        APP_ENV: test  # Укажите необходимые переменные окружения
+
+    - name: Wait for server to start
+      run: sleep 5  # Подождите, пока сервер запустится
+
+    - name: Run tests
+      run: go test ./tests  # Запуск всех тестов в проекте
+
+    - name: Stop server
+      run: pkill my_app  
+
+    - name: Build Docker image
+      run: docker build -t myapp:latest . 
+
+    - name: Run Docker container
+      run: docker run -d --name myapp_test myapp:latest 
+
+    - name: Wait for Docker container to start
+      run: sleep 5 
+
+    - name: Test Docker container
+      run: curl -f http://localhost:7540/health  
+
+    - name: Stop Docker container
+      run: docker stop myapp_test  
+
+    - name: Remove Docker container
+      run: docker rm myapp_test  

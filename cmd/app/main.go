@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
-	"github.com/paxaf/go_final_project/api"
+	"github.com/paxaf/go_final_project/internal/handlers"
 	"github.com/paxaf/go_final_project/internal/repository"
 	_ "modernc.org/sqlite"
 )
@@ -27,19 +27,19 @@ func main() {
 	fileServer := http.FileServer(http.Dir(webDir))
 	r.Group(func(r chi.Router) {
 		r.Mount("/", fileServer)
-		r.Post("/api/signin", api.Login)
-		r.Get("/api/nextdate", api.NextDateHandler)
+		r.Post("/api/signin", handlers.Login)
+		r.Get("/api/nextdate", handlers.NextDateHandler)
 	})
 	pass := os.Getenv("TODO_PASSWORD")
 	secret := os.Getenv("TODO_SECRET")
 	r.Group(func(r chi.Router) {
-		r.Use(api.Auth(pass, secret))
-		r.Get("/api/tasks", api.Tasks(repo))
-		r.Get("/api/task", api.Task(repo))
-		r.Post("/api/task", api.AddTask(repo))
-		r.Put("/api/task", api.EditTask(repo))
-		r.Post("/api/task/done", api.Done(repo))
-		r.Delete("/api/task", api.DelTask(repo))
+		r.Use(handlers.Auth(pass, secret))
+		r.Get("/api/tasks", handlers.Tasks(repo))
+		r.Get("/api/task", handlers.Task(repo))
+		r.Post("/api/task", handlers.AddTask(repo))
+		r.Put("/api/task", handlers.EditTask(repo))
+		r.Post("/api/task/done", handlers.Done(repo))
+		r.Delete("/api/task", handlers.DelTask(repo))
 	})
 
 	port := os.Getenv("TODO_PORT")

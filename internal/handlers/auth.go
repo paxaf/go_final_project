@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"os"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -23,7 +22,6 @@ func Login(pass, secret string) http.HandlerFunc {
 			return
 		}
 		defer r.Body.Close()
-		pass := os.Getenv("TODO_PASSWORD")
 		if req.Password != pass {
 			respondWithError(w, "Ошибка авторизации", http.StatusUnauthorized)
 			return

@@ -10,10 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
 
 func getURL(path string) string {
+	_ = godotenv.Load()
 	port := Port
 	envPort := os.Getenv("TODO_PORT")
 	if len(envPort) > 0 {
